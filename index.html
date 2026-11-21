@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Corazón Binario ✨</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@500;700&family=Playfair+Display:ital,wght@0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 42%, #240738 0%, #11031c 58%, #07010d 100%);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 16px 26px;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .top-badge {
+      position: relative;
+      z-index: 2;
+      font-family: 'Fira Code', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.14em;
+      color: #f9a8d4;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(244, 114, 182, 0.25);
+      padding: 6px 14px;
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+    }
+
+    .bottom-card {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      max-width: 390px;
+      text-align: center;
+      background: rgba(24, 6, 40, 0.62);
+      border: 1px solid rgba(236, 72, 153, 0.25);
+      border-radius: 22px;
+      padding: 16px 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+    }
+
+    .bottom-card h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.3rem, 5vw, 1.65rem);
+      font-weight: 700;
+      background: linear-gradient(90deg, #f472b6, #e879f9, #fda4af);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+
+    .bottom-card p {
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: #f3e8ff;
+      transition: opacity 0.25s ease;
+    }
+
+    .tap-hint {
+      margin-top: 8px;
+      font-size: 0.72rem;
+      color: rgba(249, 168, 212, 0.72);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="top-badge">01001100 01001111 01010110 01000101</div>
+
+  <canvas id="binary-heart"></canvas>
+
+  <div class="bottom-card" id="message-card">
+    <h1 id="title-text">Para ti ✨</h1>
+    <p id="phrase-text">Incluso en un mundo lleno de ceros y unos, tú eres mi única constante.</p>
+    <div class="tap-hint">Toca la pantalla para cambiar el mensaje 💖</div>
+  </div>
+
+  <script>
+    // =========================================================
+    // EDITA AQUÍ TUS FRASES (SE CAMBIAN AL TOCAR LA PANTALLA)
+    // =========================================================
+    const FRASES = [
+      "Incluso en un mundo lleno de ceros y unos, tú eres mi única constante.",
+      "Desde que llegaste, todo en mi vida tiene mucho más sentido 💖",
+      "Gracias por cada momento, por tu tiempo y por hacerme tan feliz.",
+      "Eres lo más bonito que me ha pasado ✨",
+      "Te quiero muchísimo, hoy y siempre ❤️"
+    ];
+
+    const canvas = document.getElementById("binary-heart");
+    const ctx = canvas.getContext("2d");
+    const phraseText = document.getElementById("phrase-text");
+
+    let width, height, dpr;
+    let cells = [];
+    let bgDrops = [];
+    let pulseBoost = 0;
+    let phraseIndex = 0;
+
+    // Ecuación matemática de corazón: (x^2 + y^2 - 1)^3 - x^2 * y^3 <= 0
+    function isInsideHeart(nx, ny) {
+      const a = nx * nx + ny * ny - 1;
+      return (a * a * a - nx * nx * ny * ny * ny) <= 0;
+    }
+
+    function initScene() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Tamaño del corazón adaptado a teléfono o PC
+      const heartRadius = Math.min(width * 0.43, height * 0.27);
+      const stepX = Math.max(10, Math.floor(heartRadius / 15));
+      const stepY = Math.max(12, Math.floor(heartRadius / 13));
+
+      cells = [];
+      const centerX = width / 2;
+      const centerY = height * 0.44;
+
+      for (let py = centerY - heartRadius * 1.25; py <= centerY + heartRadius * 1.25; py += stepY) {
+        for (let px = centerX - heartRadius * 1.25; px <= centerX + heartRadius * 1.25; px += stepX) {
+          // Normalizar coordenadas (-1.25 a 1.25)
+          const nx = (px - centerX) / heartRadius;
+          const ny = -(py - centerY) / heartRadius; // Invertir Y para que apunte arriba
+
+          if (isInsideHeart(nx, ny)) {
+            const distCenter = Math.hypot(nx, ny);
+            cells.push({
+              baseX: px - centerX,
+              baseY: py - centerY,
+              bit: Math.random() > 0.5 ? "1" : "0",
+              size: Math.max(10, Math.floor(stepY * 0.88)),
+              phase: Math.random() * Math.PI * 2,
+              isEdge: distCenter > 0.72,
+              huePick: Math.random()
+            });
+          }
+        }
+      }
+
+      // Lluvia suave de 0 y 1 en el fondo
+      const cols = Math.floor(width / 24);
+      bgDrops = Array.from({ length: cols }, (_, i) => ({
+        x: i * 24 + 12,
+        y: Math.random() * height,
+        speed: Math.random() * 0.9 + 0.4,
+        bit: Math.random() > 0.5 ? "1" : "0"
+      }));
+    }
+
+    function draw(time) {
+      const t = time * 0.001;
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Números sutiles flotando en el fondo
+      ctx.font = "500 11px 'Fira Code', monospace";
+      ctx.textAlign = "center";
+      for (let d of bgDrops) {
+        d.y += d.speed;
+        if (d.y > height) {
+          d.y = -10;
+          d.bit = Math.random() > 0.5 ? "1" : "0";
+        }
+        ctx.fillStyle = "rgba(192, 132, 252, 0.14)";
+        ctx.fillText(d.bit, d.x, d.y);
+      }
+
+      // 2. Latido suave del corazón + impulso al tocar
+      const heartbeat = 1 + Math.sin(t * 3.2) * 0.045 + Math.sin(t * 6.4) * 0.015 + pulseBoost;
+      pulseBoost *= 0.92;
+
+      const centerX = width / 2;
+      const centerY = height * 0.44;
+
+      // Resplandor detrás del corazón
+      const glow = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, Math.min(width, height) * 0.36);
+      glow.addColorStop(0, "rgba(219, 39, 119, 0.25)");
+      glow.addColorStop(0.6, "rgba(126, 34, 206, 0.10)");
+      glow.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, width, height);
+
+      // 3. Dibujar cada 1 y 0 que forma el corazón
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      for (let c of cells) {
+        // Cambiar aleatoriamente entre 0 y 1
+        if (Math.random() < 0.025) {
+          c.bit = c.bit === "1" ? "0" : "1";
+        }
+
+        const x = centerX + c.baseX * heartbeat;
+        const y = centerY + c.baseY * heartbeat;
+        const shimmer = 0.65 + 0.35 * Math.sin(t * 4 + c.phase);
+
+        ctx.font = `700 ${c.size}px 'Fira Code', monospace`;
+
+        if (c.isEdge) {
+          // Borde brillante rosa neón
+          ctx.fillStyle = `rgba(244, 114, 182, ${shimmer})`;
+          ctx.shadowColor = "#ec4899";
+          ctx.shadowBlur = 8;
+        } else if (c.huePick > 0.45) {
+          // Interior morado luminoso
+          ctx.fillStyle = `rgba(192, 132, 252, ${shimmer * 0.92})`;
+          ctx.shadowColor = "#a855f7";
+          ctx.shadowBlur = 4;
+        } else {
+          // Destellos claros
+          ctx.fillStyle = `rgba(251, 207, 232, ${shimmer * 0.95})`;
+          ctx.shadowBlur = 0;
+        }
+
+        ctx.fillText(c.bit, x, y);
+      }
+
+      ctx.shadowBlur = 0;
+      requestAnimationFrame(draw);
+    }
+
+    // Interacción táctil: pulso + cambio de frase
+    window.addEventListener("pointerdown", () => {
+      pulseBoost = 0.14;
+      phraseIndex = (phraseIndex + 1) % FRASES.length;
+      phraseText.style.opacity = "0";
+      setTimeout(() => {
+        phraseText.textContent = FRASES[phraseIndex];
+        phraseText.style.opacity = "1";
+      }, 180);
+    });
+
+    window.addEventListener("resize", initScene);
+
+    initScene();
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>
